@@ -2,11 +2,27 @@ import keyboard
 import os
 import random
 
+
 COLS = 25
 ROWS = 10
 EMPTY = '☐'
 PLAYER = 'P'
 ANT = 'a'
+ANTHILL = 'A'
+ANTHILL_MAX = 4
+ANTHILL_MINI = 1
+UP = 'up'
+DOWN = 'down'
+RIGHT = 'right'
+LEFT = 'left'
+
+
+class GameObject:
+    def __init__(self, y, x):
+        self.y = y
+        self.x = x
+        self.image = None
+
 
 class Cell:
     def __init__(self, Y=None, X=None):
@@ -21,78 +37,47 @@ class Cell:
         else:
             print(self.image, end=' ')
 
-class Player:
-    def __init__(self, Y=None, X=None):
+
+class Player(GameObject):
+    def __init__(self, y=None, x=None):
+        super().__init__(y, x)
         self.image = PLAYER
-        self.Y = Y
-        self.X = X
 
     def move(self, direction, field):
-        new_Y, new_X = self.Y, self.X
+        new_y, new_x = self.y, self.x
 
-        if direction == 'up' and self.Y > 0:
-            new_Y -= 1
-        elif direction == 'down' and self.Y < field.rows - 1:
-            new_Y += 1
-        elif direction == 'left' and self.X > 0:
-            new_X -= 1
-        elif direction == 'right' and self.X < field.cols - 1:
-            new_X += 1
+        if direction == UP and self.y > 0 and not isinstance(field.cells[self.y - 1][self.x].content, Anthill):
+            new_y -= 1
+        elif direction == DOWN and self.y < field.rows - 1 and not isinstance(field.cells[self.y + 1][self.x].content, Anthill):
+            new_y += 1
+        elif direction == LEFT and self.x > 0 and not isinstance(field.cells[self.y][self.x - 1].content, Anthill):
+            new_x -= 1
+        elif direction == RIGHT and self.x < field.cols - 1 and not isinstance(field.cells[self.y][self.x + 1].content, Anthill):
+            new_x += 1
 
-        if field.cells[new_Y][new_X].content is None:
-            field.cells[self.Y][self.X].content = None
-            self.Y, self.X = new_Y, new_X
-            field.cells[self.Y][self.X].content = self
+        field.cells[self.y][self.x].content = None
+        self.y, self.x = new_y, new_x
+        field.cells[self.y][self.x].content = self
 
-class Ant:
-    def __init__(self, Y=None, X=None):
-        self.image = ANT
-        self.Y = Y
-        self.X = X
 
-    def move_away_from_player(self, player, field):
-        directions = ['up', 'down', 'left', 'right']
-        opposite_directions = {
-            'up': 'down',
-            'down': 'up',
-            'left': 'right',
-            'right': 'left'
-        }
+class Anthill(GameObject):
+    def __init__(self, x, y, quantity):
+        super().__init__(y, x)
+        self.image = 'A'
+        self.quantity = quantity
 
-        direction = random.choice(directions)
-        player_distance = abs(player.Y - self.Y) + abs(player.X - self.X)
-        new_Y, new_X = self.Y, self.X
+    def place_anthill(self, field):
+        field.cells[self.y][self.x].content = self
 
-        while True:
-            if direction == 'up' and new_Y > 0:
-                new_Y -= 1
-            elif direction == 'down' and new_Y < field.rows - 1:
-                new_Y += 1
-            elif direction == 'left' and new_X > 0:
-                new_X -= 1
-            elif direction == 'right' and new_X < field.cols - 1:
-                new_X += 1
-
-            new_distance = abs(player.Y - new_Y) + abs(player.X - new_X)
-            if new_distance >= player_distance:
-                break
-
-            direction = opposite_directions[direction]
-
-        if field.cells[new_Y][new_X].content is None:
-            field.cells[self.Y][self.X].content = None
-            self.Y, self.X = new_Y, new_X
-            field.cells[self.Y][self.X].content = self
 
 class Field:
-    def __init__(self, cell=Cell, player=Player, ant=Ant):
+    def __init__(self, cell=Cell, player=Player, anthill=Anthill, anthill_max=ANTHILL_MAX, anthill_mini=ANTHILL_MINI):
         self.rows = ROWS
         self.cols = COLS
+        self.anthills = []
         self.cells = [[cell(Y=y, X=x) for x in range(COLS)] for y in range(ROWS)]
-        self.player = player(Y=random.randint(0, ROWS - 1), X=random.randint(0, COLS - 1))
-        self.ant = ant(Y=random.randint(0, ROWS - 1), X=random.randint(0, COLS - 1))
-        self.cells[self.player.Y][self.player.X].content = self.player
-        self.cells[self.ant.Y][self.ant.X].content = self.ant
+        self.player = player(y=random.randint(0, ROWS - 1), x=random.randint(0, COLS - 1))
+        self.cells[self.player.y][self.player.x].content = self.player
 
     def drawrows(self):
         for row in self.cells:
@@ -100,34 +85,42 @@ class Field:
                 cell.draw()
             print()
 
+    def add_anthill(self, anthill):
+        self.anthills.append(anthill)
+        anthill.place_anthill(self)
+
+    def add_anthills_randomly(self):
+        for _ in range(random.randint(ANTHILL_MINI, ANTHILL_MAX)):
+            anthill = Anthill(x=random.randint(0, COLS - 1), y=random.randint(0, ROWS - 1), quantity=random.randint(ANTHILL_MINI, ANTHILL_MAX))
+            self.add_anthill(anthill)
+
+
 def clear_screen():
     if os.name == 'nt':
         os.system('cls')
     else:
         os.system('clear')
 
+
 class Game:
     def __init__(self):
         self.field = Field()
+        self.field.add_anthills_randomly()
 
     def handle_keyboard_event(self, event):
         if event.event_type == keyboard.KEY_DOWN:
-            if event.name == 'up':
-                self.field.player.move('up', self.field)
-                self.field.ant.move_away_from_player(self.field.player, self.field)
-            elif event.name == 'down':
-                self.field.player.move('down', self.field)
-                self.field.ant.move_away_from_player(self.field.player, self.field)
-            elif event.name == 'left':
-                self.field.player.move('left', self.field)
-                self.field.ant.move_away_from_player(self.field.player, self.field)
-            elif event.name == 'right':
-                self.field.player.move('right', self.field)
-                self.field.ant.move_away_from_player(self.field.player, self.field)
+            if event.name == UP:
+                self.field.player.move(UP, self.field)
+            elif event.name == DOWN:
+                self.field.player.move(DOWN, self.field)
+            elif event.name == LEFT:
+                self.field.player.move(LEFT, self.field)
+            elif event.name == RIGHT:
+                self.field.player.move(RIGHT, self.field)
             elif event.name == 'esc':
                 print("Выход из игры.")
                 return True
-            return False
+        return False
 
     def update_game_state(self):
         clear_screen()
@@ -142,6 +135,7 @@ class Game:
                 break
 
             self.update_game_state()
+
 
 game_instance = Game()
 game_instance.run()
