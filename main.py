@@ -90,8 +90,12 @@ class Field:
         anthill.place_anthill(self)
 
     def add_anthills_randomly(self):
-        for _ in range(random.randint(ANTHILL_MINI, ANTHILL_MAX)):
-            anthill = Anthill(x=random.randint(0, COLS - 1), y=random.randint(0, ROWS - 1), quantity=random.randint(ANTHILL_MINI, ANTHILL_MAX))
+        for i in range(random.randint(ANTHILL_MINI, ANTHILL_MAX)):
+            anthill_x, anthill_y = random.randint(0, COLS - 1), random.randint(0, ROWS - 1)
+            while (anthill_x, anthill_y) == (self.player.x, self.player.y):
+                anthill_x, anthill_y = random.randint(0, COLS - 1), random.randint(0, ROWS - 1)
+
+            anthill = Anthill(x=anthill_x, y=anthill_y, quantity=random.randint(ANTHILL_MINI, ANTHILL_MAX))
             self.add_anthill(anthill)
 
 
